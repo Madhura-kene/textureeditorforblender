@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TEB — Texture Editor for Blender</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="studio-header">
+            <div class="logo-container">
+                <span class="logo-icon">✦</span>
+                <h1>TEB <span class="badge">STUDIO</span></h1>
+            </div>
+            <p class="subtitle">Texture Editor for Blender — Convert any image into high-fidelity PBR texture maps</p>
+        </header>
+
+        <!-- Main Studio Area -->
+        <main class="studio-grid">
+            <!-- Left Panel: Controls and Upload -->
+            <section class="panel panel-controls">
+                <!-- Image Upload Zone -->
+                <div class="upload-container" id="drop-zone">
+                    <input type="file" id="file-input" accept="image/*" style="display: none;">
+                    <div class="upload-placeholder">
+                        <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <p class="upload-text">Drag & drop your texture image, or <span class="highlight">browse</span></p>
+                        <p class="upload-subtext">Supports PNG, JPG, WEBP (Square images work best)</p>
+                    </div>
+                    <div class="upload-preview-container" style="display: none;">
+                        <img id="upload-preview" src="" alt="Texture source preview">
+                        <button class="btn-remove-image" id="btn-remove-image" title="Remove image">×</button>
+                    </div>
+                </div>
+
+                <!-- Tweak Sliders (Only active once image is loaded) -->
+                <div class="sliders-section disabled" id="sliders-section">
+                    <!-- Tiling Settings -->
+                    <div class="control-group">
+                        <div class="group-header">
+                            <h3>Seamless Tiling</h3>
+                            <label class="switch-container">
+                                <input type="checkbox" id="toggle-tiling">
+                                <span class="switch-slider"></span>
+                            </label>
+                        </div>
+                        <div class="slider-wrapper collapse" id="tiling-slider-wrapper">
+                            <div class="slider-info">
+                                <label for="tiling-blend">Seam Blend Width</label>
+                                <span class="value-display" id="val-tiling-blend">30px</span>
+                            </div>
+                            <input type="range" id="tiling-blend" min="5" max="100" value="30">
+                        </div>
+                    </div>
+
+                    <!-- Normal Map Settings -->
+                    <div class="control-group">
+                        <div class="group-header">
+                            <h3>Normal Map</h3>
+                        </div>
+                        <div class="slider-wrapper">
+                            <div class="slider-info">
+                                <label for="normal-strength">Strength</label>
+                                <span class="value-display" id="val-normal-strength">2.0</span>
+                            </div>
+                            <input type="range" id="normal-strength" min="0.1" max="10" step="0.1" value="2.0">
+                        </div>
+                        <div class="slider-wrapper">
+                            <div class="slider-info">
+                                <label for="normal-blur">Smoothness</label>
+                                <span class="value-display" id="val-normal-blur">0px</span>
+                            </div>
+                            <input type="range" id="normal-blur" min="0" max="5" step="1" value="0">
+                        </div>
+                    </div>
+
+                    <!-- Roughness Map Settings -->
+                    <div class="control-group">
+                        <div class="group-header">
+                            <h3>Roughness Map</h3>
+                        </div>
+                        <div class="slider-wrapper">
+                            <div class="slider-info">
+                                <label for="roughness-base">Base Roughness</label>
+                                <span class="value-display" id="val-roughness-base">0.5</span>
+                            </div>
+                            <input type="range" id="roughness-base" min="0" max="1" step="0.05" value="0.5">
+                        </div>
+                        <div class="slider-wrapper">
+                            <div class="slider-info">
+                                <label for="roughness-contrast">Contrast</label>
+                                <span class="value-display" id="val-roughness-contrast">1.0</span>
+                            </div>
+                            <input type="range" id="roughness-contrast" min="0.1" max="3.0" step="0.1" value="1.0">
+                        </div>
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" id="roughness-invert">
+                            <label for="roughness-invert">Invert Roughness (Glossy is dark)</label>
+                        </div>
+                    </div>
+
+                    <!-- Displacement/Height Settings -->
+                    <div class="control-group">
+                        <div class="group-header">
+                            <h3>Height & Displacement</h3>
+                        </div>
+                        <div class="slider-wrapper">
+                            <div class="slider-info">
+                                <label for="height-contrast">Contrast (Depth)</label>
+                                <span class="value-display" id="val-height-contrast">1.0</span>
+                            </div>
+                            <input type="range" id="height-contrast" min="0.1" max="3.0" step="0.1" value="1.0">
+                        </div>
+                    </div>
+
+                    <!-- AO Settings -->
+                    <div class="control-group">
+                        <div class="group-header">
+                            <h3>Ambient Occlusion</h3>
+                        </div>
+                        <div class="slider-wrapper">
+                            <div class="slider-info">
+                                <label for="ao-strength">AO Strength</label>
+                                <span class="value-display" id="val-ao-strength">1.0</span>
+                            </div>
+                            <input type="range" id="ao-strength" min="0" max="3" step="0.1" value="1.0">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Panel: 3D Viewport -->
+            <section class="panel panel-preview">
+                <div class="viewport-header">
+                    <div class="toolbar-left">
+                        <span class="viewport-title">3D VIEWPORT</span>
+                    </div>
+                    <div class="toolbar-right">
+                        <!-- Geometry Selector -->
+                        <div class="segmented-control" id="geom-selector">
+                            <button class="btn-tab active" data-geom="sphere">Sphere</button>
+                            <button class="btn-tab" data-geom="cube">Cube</button>
+                            <button class="btn-tab" data-geom="cylinder">Cylinder</button>
+                            <button class="btn-tab" data-geom="plane">Plane</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="canvas-3d-container">
+                    <div id="viewport-3d"></div>
+                    <div class="viewport-instructions">
+                        Left Click + Drag to Rotate • Right Click + Drag to Pan • Scroll to Zoom
+                    </div>
+                </div>
+
+                <!-- Live Lighting Controls -->
+                <div class="viewport-lighting">
+                    <div class="light-control">
+                        <label for="light-rotation">Light Angle</label>
+                        <input type="range" id="light-rotation" min="0" max="360" value="45">
+                    </div>
+                    <div class="light-control">
+                        <label for="displacement-scale">Disp. Scale</label>
+                        <input type="range" id="displacement-scale" min="0" max="0.5" step="0.01" value="0.05">
+                    </div>
+                    <div class="light-control">
+                        <label for="tiling-frequency">Tiling Reps</label>
+                        <input type="range" id="tiling-frequency" min="1" max="5" step="1" value="1">
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Bottom Bar: Map Thumbnails and Export -->
+        <footer class="studio-footer disabled" id="studio-footer">
+            <div class="map-thumbnails-container">
+                <div class="map-card active" data-map="preview">
+                    <div class="map-card-canvas">
+                        <canvas id="canvas-albedo" width="128" height="128"></canvas>
+                    </div>
+                    <div class="map-card-info">
+                        <span class="map-title">Albedo (Color)</span>
+                    </div>
+                </div>
+                <div class="map-card" data-map="normal">
+                    <div class="map-card-canvas">
+                        <canvas id="canvas-normal" width="128" height="128"></canvas>
+                    </div>
+                    <div class="map-card-info">
+                        <span class="map-title">Normal Map</span>
+                    </div>
+                </div>
+                <div class="map-card" data-map="roughness">
+                    <div class="map-card-canvas">
+                        <canvas id="canvas-roughness" width="128" height="128"></canvas>
+                    </div>
+                    <div class="map-card-info">
+                        <span class="map-title">Roughness</span>
+                    </div>
+                </div>
+                <div class="map-card" data-map="displacement">
+                    <div class="map-card-canvas">
+                        <canvas id="canvas-displacement" width="128" height="128"></canvas>
+                    </div>
+                    <div class="map-card-info">
+                        <span class="map-title">Displacement</span>
+                    </div>
+                </div>
+                <div class="map-card" data-map="ao">
+                    <div class="map-card-canvas">
+                        <canvas id="canvas-ao" width="128" height="128"></canvas>
+                    </div>
+                    <div class="map-card-info">
+                        <span class="map-title">AO Map</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Export Button -->
+            <div class="export-container">
+                <button class="btn-export" id="btn-export">
+                    <svg class="export-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>Export Blender Zip</span>
+                </button>
+            </div>
+        </footer>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>
