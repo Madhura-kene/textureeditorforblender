@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:blender": "node server/blender-service.mjs",
     "build": "vite build",
     "preview": "vite preview"
   },

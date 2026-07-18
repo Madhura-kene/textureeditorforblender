@@ -3,6 +3,8 @@
  */
 import JSZip from 'jszip';
 
+const BLENDER_SERVICE_URL = 'http://localhost:3001';
+
 // Readme text instructions for the user
 function getReadmeText() {
     return `-------------------------------------------------------
@@ -28,7 +30,7 @@ INSTRUCTIONS FOR BLENDER SETUP:
 7. Change your 3D Viewport shading mode to "Material Preview" or "Rendered" to see the textured material.
 
 Note:
-The python script will automatically hook up color, normal mapping, roughness and daisy-chain height maps using bump parameters, selecting the correct Color Space ('sRGB' for Albedo and 'Non-Color' for normal, roughness, and displacement).
+The python script will automatically create a UV-driven Mapping setup and wire albedo, roughness, normal, and true displacement nodes with the correct Color Space settings ('sRGB' for Albedo and 'Non-Color' for normal, roughness, displacement, and AO).
 `;
 }
 
@@ -44,6 +46,8 @@ def create_material(material_name="TEB_Material"):
     # Create a new material
     mat = bpy.data.materials.new(name=material_name)
     mat.use_nodes = True
+    if hasattr(mat, "displacement_method"):
+        mat.displacement_method = 'BOTH'
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
     
@@ -52,12 +56,20 @@ def create_material(material_name="TEB_Material"):
     
     # Create Material Output node
     output_node = nodes.new(type='ShaderNodeOutputMaterial')
-    output_node.location = (600, 0)
+    output_node.location = (700, -50)
     
     # Create Principled BSDF node
     bsdf_node = nodes.new(type='ShaderNodeBsdfPrincipled')
-    bsdf_node.location = (200, 0)
+    bsdf_node.location = (300, 50)
     links.new(bsdf_node.outputs['BSDF'], output_node.inputs['Surface'])
+
+    # Shared UV mapping controls for all image textures
+    tex_coord_node = nodes.new(type='ShaderNodeTexCoord')
+    tex_coord_node.location = (-900, -50)
+
+    mapping_node = nodes.new(type='ShaderNodeMapping')
+    mapping_node.location = (-650, -50)
+    links.new(tex_coord_node.outputs['UV'], mapping_node.inputs['Vector'])
     
     # Helper to add an Image Texture node
     def add_image_texture(file_name, label, color_space='sRGB'):
@@ -82,7 +94,8 @@ def create_material(material_name="TEB_Material"):
     # 1. Albedo (Base Color)
     albedo_node = add_image_texture("albedo.png", "Albedo (Color)", 'sRGB')
     if albedo_node:
-        albedo_node.location = (-250, 300)
+        albedo_node.location = (-350, 250)
+        links.new(mapping_node.outputs['Vector'], albedo_node.inputs['Vector'])
         color_input = bsdf_node.inputs.get('Base Color') or bsdf_node.inputs.get('Color')
         if color_input:
             links.new(albedo_node.outputs['Color'], color_input)
@@ -90,7 +103,8 @@ def create_material(material_name="TEB_Material"):
     # 2. Roughness
     rough_node = add_image_texture("roughness.png", "Roughness", 'Non-Color')
     if rough_node:
-        rough_node.location = (-250, 50)
+        rough_node.location = (-350, 500)
+        links.new(mapping_node.outputs['Vector'], rough_node.inputs['Vector'])
         rough_input = bsdf_node.inputs.get('Roughness')
         if rough_input:
             links.new(rough_node.outputs['Color'], rough_input)
@@ -98,34 +112,34 @@ def create_material(material_name="TEB_Material"):
     # 3. Normal Map
     normal_img_node = add_image_texture("normal.png", "Normal Map Image", 'Non-Color')
     if normal_img_node:
-        normal_img_node.location = (-500, -200)
+        normal_img_node.location = (-350, -250)
+        links.new(mapping_node.outputs['Vector'], normal_img_node.inputs['Vector'])
         normal_map_node = nodes.new(type='ShaderNodeNormalMap')
-        normal_map_node.location = (-250, -200)
+        normal_map_node.location = (-50, -250)
         links.new(normal_img_node.outputs['Color'], normal_map_node.inputs['Color'])
         
         normal_input = bsdf_node.inputs.get('Normal')
         if normal_input:
             links.new(normal_map_node.outputs['Normal'], normal_input)
         
-    # 4. Displacement / Height (Wiring as Bump)
+    # 4. True displacement wired to the Material Output node
     disp_node = add_image_texture("displacement.png", "Displacement/Height", 'Non-Color')
     if disp_node:
-        disp_node.location = (-500, -450)
-        bump_node = nodes.new(type='ShaderNodeBump')
-        bump_node.location = (-250, -450)
-        bump_node.inputs['Strength'].default_value = 0.2
-        links.new(disp_node.outputs['Color'], bump_node.inputs['Height'])
-        
-        # Daisy-chain with Normal Map if normal is present
-        if normal_img_node:
-            links.new(normal_map_node.outputs['Normal'], bump_node.inputs['Normal'])
-            normal_input = bsdf_node.inputs.get('Normal')
-            if normal_input:
-                links.new(bump_node.outputs['Normal'], normal_input)
-        else:
-            normal_input = bsdf_node.inputs.get('Normal')
-            if normal_input:
-                links.new(bump_node.outputs['Normal'], normal_input)
+        disp_node.location = (-350, -500)
+        links.new(mapping_node.outputs['Vector'], disp_node.inputs['Vector'])
+
+        displacement_node = nodes.new(type='ShaderNodeDisplacement')
+        displacement_node.location = (300, -450)
+        displacement_node.inputs['Scale'].default_value = 0.1
+        displacement_node.inputs['Midlevel'].default_value = 0.5
+        links.new(disp_node.outputs['Color'], displacement_node.inputs['Height'])
+        links.new(displacement_node.outputs['Displacement'], output_node.inputs['Displacement'])
+
+    # 5. AO is exported for optional use but left unconnected by default
+    ao_node = add_image_texture("ao.png", "Ambient Occlusion", 'Non-Color')
+    if ao_node:
+        ao_node.location = (-350, 750)
+        links.new(mapping_node.outputs['Vector'], ao_node.inputs['Vector'])
                 
     # Assign material to active object if available
     active_obj = bpy.context.active_object
@@ -149,6 +163,10 @@ function canvasToBlob(canvas) {
             resolve(blob);
         }, 'image/png');
     });
+}
+
+function canvasToDataUrl(canvas) {
+    return canvas.toDataURL('image/png');
 }
 
 /**
@@ -190,6 +208,71 @@ export async function exportBlenderZip(canvases, baseFilename = "TEB_PBR_Texture
     document.body.removeChild(downloadLink);
     
     // Cleanup reference
+    setTimeout(() => {
+        URL.revokeObjectURL(downloadUrl);
+    }, 100);
+}
+
+export async function checkBlenderService() {
+    const response = await fetch(`${BLENDER_SERVICE_URL}/api/health`);
+    if (!response.ok) {
+        throw new Error('Blender service is unavailable.');
+    }
+    return response.json();
+}
+
+export async function exportBlenderFile(
+    canvases,
+    {
+        baseFilename = 'TEB_PBR_Textures',
+        geometry = 'plane',
+        displacementScale = 0.1,
+        tilingFrequency = 1
+    } = {}
+) {
+    const response = await fetch(`${BLENDER_SERVICE_URL}/api/export-blend`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            baseFilename,
+            geometry,
+            displacementScale,
+            tilingFrequency,
+            textures: {
+                albedo: canvasToDataUrl(canvases.albedo),
+                normal: canvasToDataUrl(canvases.normal),
+                roughness: canvasToDataUrl(canvases.roughness),
+                displacement: canvasToDataUrl(canvases.displacement),
+                ao: canvasToDataUrl(canvases.ao)
+            }
+        })
+    });
+
+    if (!response.ok) {
+        let errorMessage = 'Failed to export .blend file.';
+        try {
+            const payload = await response.json();
+            if (payload?.error) {
+                errorMessage = payload.error;
+            }
+        } catch {
+            // Keep fallback message when the response body is not JSON.
+        }
+        throw new Error(errorMessage);
+    }
+
+    const blendBlob = await response.blob();
+    const downloadUrl = URL.createObjectURL(blendBlob);
+    const downloadLink = document.createElement('a');
+    downloadLink.href = downloadUrl;
+    downloadLink.download = `${baseFilename}.blend`;
+
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+
     setTimeout(() => {
         URL.revokeObjectURL(downloadUrl);
     }, 100);

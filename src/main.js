@@ -1,7 +1,7 @@
 import './style.css';
 import { Preview3D } from './preview3d.js';
 import { createSeamlessTexture, generatePBRMaps } from './generator.js';
-import { exportBlenderZip } from './exporter.js';
+import { checkBlenderService, exportBlenderFile, exportBlenderZip } from './exporter.js';
 
 // Application State
 const state = {
@@ -74,6 +74,8 @@ const sliderDisplacementScale = document.getElementById('displacement-scale');
 const sliderTilingFrequency = document.getElementById('tiling-frequency');
 
 const btnExport = document.getElementById('btn-export');
+const btnExportBlend = document.getElementById('btn-export-blend');
+const blenderServiceStatus = document.getElementById('blender-service-status');
 
 // Initialize 3D Viewport
 let preview3D = null;
@@ -82,6 +84,8 @@ try {
 } catch (error) {
     console.error("Failed to initialize WebGL viewport:", error);
 }
+
+checkBlendServiceAvailability();
 
 // ----------------------------------------------------
 // File Upload & Image Loading
@@ -169,6 +173,17 @@ function resetStudio() {
     
     slidersSection.classList.add('disabled');
     studioFooter.classList.add('disabled');
+}
+
+async function checkBlendServiceAvailability() {
+    try {
+        const info = await checkBlenderService();
+        blenderServiceStatus.textContent = `Headless Blender ready on port ${info.port}`;
+        blenderServiceStatus.dataset.state = 'ready';
+    } catch {
+        blenderServiceStatus.textContent = 'Headless Blender offline. Run `npm run dev:blender` to enable .blend export.';
+        blenderServiceStatus.dataset.state = 'offline';
+    }
 }
 
 // ----------------------------------------------------
@@ -400,5 +415,76 @@ btnExport.addEventListener('click', async () => {
         btnText.textContent = originalText;
         btnExport.style.pointerEvents = 'auto';
         btnExport.style.opacity = '1.0';
+    }
+});
+
+btnExportBlend.addEventListener('click', async () => {
+    if (!state.originalImage) return;
+
+    const btnText = btnExportBlend.querySelector('span');
+    const originalText = btnText.textContent;
+    btnText.textContent = 'Building .blend...';
+    btnExportBlend.style.pointerEvents = 'none';
+    btnExportBlend.style.opacity = '0.7';
+
+    try {
+        await checkBlendServiceAvailability();
+
+        if (blenderServiceStatus.dataset.state !== 'ready') {
+            throw new Error('Headless Blender service is not running yet.');
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        const w = state.originalImage.width;
+        const h = state.originalImage.height;
+
+        const albedoCanvas = document.createElement('canvas');
+        albedoCanvas.width = w;
+        albedoCanvas.height = h;
+        const albedoCtx = albedoCanvas.getContext('2d');
+
+        if (state.tilingEnabled) {
+            const tiled = createSeamlessTexture(state.originalImage, state.tilingBlend);
+            albedoCtx.drawImage(tiled, 0, 0);
+        } else {
+            albedoCtx.drawImage(state.originalImage, 0, 0);
+        }
+
+        const params = {
+            tilingEnabled: state.tilingEnabled,
+            normalStrength: state.normalStrength,
+            normalBlur: state.normalBlur,
+            roughnessBase: state.roughnessBase,
+            roughnessContrast: state.roughnessContrast,
+            roughnessInvert: state.roughnessInvert,
+            heightContrast: state.heightContrast,
+            aoStrength: state.aoStrength
+        };
+
+        const maps = generatePBRMaps(albedoCanvas, params);
+
+        await exportBlenderFile(
+            {
+                albedo: albedoCanvas,
+                normal: maps.normal,
+                roughness: maps.roughness,
+                displacement: maps.displacement,
+                ao: maps.ao
+            },
+            {
+                baseFilename: `${state.activeFilename}_PBR`,
+                geometry: state.selectedGeom,
+                displacementScale: state.displacementScale,
+                tilingFrequency: state.tilingFrequency
+            }
+        );
+    } catch (err) {
+        console.error('Blend export failed:', err);
+        alert(`Unable to export .blend: ${err.message}`);
+    } finally {
+        btnText.textContent = originalText;
+        btnExportBlend.style.pointerEvents = 'auto';
+        btnExportBlend.style.opacity = '1.0';
     }
 });
