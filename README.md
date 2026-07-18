@@ -6,7 +6,7 @@
 
 ---
 
-## ✨ Features
+##  Features
 
 - **5 PBR Maps generated in-browser** — Albedo, Normal (Sobel filter), Roughness, Displacement/Height, Ambient Occlusion
 - **Real-time slider controls** — adjust Normal Strength, Roughness Contrast, AO Strength, Seamless Blend, and more with instant live canvas feedback
@@ -19,7 +19,7 @@
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 - Node.js 18+
@@ -52,7 +52,7 @@ npm run dev:blender
 
 ---
 
-## 🎨 Using TEB
+##  Using TEB
 
 1. **Upload** — drag any JPG/PNG/WEBP texture onto the dropzone, or click to browse
 2. **Tune** — use the sliders to control Normal strength, Roughness contrast, AO intensity, and optionally enable Seamless Tiling
@@ -62,7 +62,7 @@ npm run dev:blender
 
 ---
 
-## 📦 Blender Integration
+##  Blender Integration
 
 ### Zip export
 
@@ -91,7 +91,7 @@ When `npm run dev:blender` is running, the website can:
 
 ---
 
-## 🛠 Tech Stack
+##  Tech Stack
 
 | Layer | Technology |
 |---|---|
@@ -105,7 +105,7 @@ When `npm run dev:blender` is running, the website can:
 
 ---
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 teb/
@@ -124,6 +124,3 @@ teb/
 
 ---
 
-## 📄 License
-
-MIT — feel free to use, modify, and distribute.
