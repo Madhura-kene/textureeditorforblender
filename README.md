@@ -1,126 +1,141 @@
-# TEB — Texture Editor for Blender
+TEB - Texture Editor for Blender
 
-**TEB** is a browser-based PBR texture map generator for Blender. Upload any image and instantly generate five production-ready texture maps with a real-time interactive 3D preview, then export either a Blender zip package or a ready-made `.blend` through a local headless Blender service.
+TEB is a browser-based texture tool that turns a single input image into a small PBR texture set for Blender. It generates `albedo`, `normal`, `roughness`, `displacement`, and `ao` maps in the browser, shows them on a live 3D preview, and lets you export either:
 
-![TEB Studio](https://raw.githubusercontent.com/Madhura-kene/texture-editor-for-blender/main/preview.png)
+- a Blender zip with the generated maps plus a setup script
+- a ready-made `.blend` file through a local headless Blender bridge
 
----
+## What It Does
 
-##  Features
+- Upload one texture image and generate 5 derived maps locally
+- Tweak normal strength, roughness, AO, tiling, and displacement behavior in real time
+- Preview the material on `sphere`, `cube`, `cylinder`, or `plane`
+- Export a Blender-ready zip package
+- Export a `.blend` file with the generated material already wired
 
-- **5 PBR Maps generated in-browser** — Albedo, Normal (Sobel filter), Roughness, Displacement/Height, Ambient Occlusion
-- **Real-time slider controls** — adjust Normal Strength, Roughness Contrast, AO Strength, Seamless Blend, and more with instant live canvas feedback
-- **Optional Seamless Tiling** — quadrant-shift + center edge-blend algorithm for perfectly tileable textures
-- **Interactive Three.js 3D Viewport** — orbit, pan, zoom, and a cursor-tracked point light to preview normal & roughness shading in real-time
-- **4 Preview Geometries** — Sphere, Cube, Cylinder, Plane
-- **Viewport controls** — Light Angle, Displacement Scale, Tiling Repeat
-- **Dual Blender Export** — download a `.zip` with the maps and setup script, or a generated `.blend` file through your local headless Blender service
-- **Privacy-first** — processing stays local: browser-side maps plus optional local Blender generation
+## Generated Maps
 
----
+- `albedo.png`: base color
+- `normal.png`: Sobel-based normal map
+- `roughness.png`: grayscale roughness map
+- `displacement.png`: grayscale height/displacement map
+- `ao.png`: ambient occlusion map
 
-##  Getting Started
+## Stack
 
-### Prerequisites
-- Node.js 18+
+- `Vite`
+- `Three.js`
+- `JSZip`
+- `Vanilla JavaScript`
+- `Headless Blender` for direct `.blend` export
 
-### Install & Run
+## Project Structure
+
+```text
+teb/
+|- index.html
+|- package.json
+|- vite.config.js
+|- server/
+|  \- blender-service.mjs
+\- src/
+   |- main.js
+   |- generator.js
+   |- preview3d.js
+   |- exporter.js
+   \- style.css
+```
+
+## Requirements
+
+- `Node.js 18+`
+- `Blender` installed locally if you want `.blend` export
+
+## Run Locally
+
 ```bash
-git clone https://github.com/Madhura-kene/texture-editor-for-blender.git
-cd texture-editor-for-blender
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000).
 
-### Optional `.blend` export service
-If you want direct `.blend` downloads, run the local Blender bridge in a second terminal:
+## Direct .blend Export
+
+The app supports two export modes.
+
+### 1. Blender Zip Export
+
+This works with no backend.
+
+It downloads:
+
+- the generated PNG maps
+- `setup_material.py`
+- a small readme text file
+
+Use this when you want a simple Blender handoff and are okay with running the script inside Blender.
+
+### 2. Headless Blender Export
+
+This creates a downloadable `.blend` file directly from the website.
+
+Start the local Blender bridge in a second terminal:
 
 ```bash
 npm run dev:blender
 ```
 
+The bridge listens on `http://localhost:3001`.
+
 If Blender is not on your `PATH`, set `BLENDER_PATH` first.
 
-Windows PowerShell example:
+PowerShell example:
 
 ```powershell
-$env:BLENDER_PATH="C:\Program Files\Blender Foundation\Blender 4.2\blender.exe"
+$env:BLENDER_PATH="C:\Program Files\Blender Foundation\Blender 5.1\blender.exe"
 npm run dev:blender
 ```
 
----
+Once the service is running, the app can:
 
-##  Using TEB
+1. Generate the maps in the browser
+2. Send them to the local bridge
+3. Launch Blender in background mode
+4. Build a `.blend` file
+5. Download that `.blend` back to the browser
 
-1. **Upload** — drag any JPG/PNG/WEBP texture onto the dropzone, or click to browse
-2. **Tune** — use the sliders to control Normal strength, Roughness contrast, AO intensity, and optionally enable Seamless Tiling
-3. **Preview** — rotate the 3D mesh with left-click drag; move your cursor over it to see the cursor-tracked point light illuminate the surface details
-4. **Switch geometry** — use the toolbar above the viewport to swap between Sphere, Cube, Cylinder, and Plane
-5. **Export** — click **Export Blender Zip** for maps plus setup script, or **Export .blend** when the local Blender service is running
+## Blender Material Wiring
 
----
+Both export flows use the same default node layout:
 
-##  Blender Integration
+- `UV` -> `Mapping` -> all texture `Vector` inputs
+- `albedo` -> `Principled BSDF / Base Color`
+- `roughness` -> `Principled BSDF / Roughness`
+- `normal` -> `Normal Map` node -> `Principled BSDF / Normal`
+- `displacement` -> `Displacement` node -> `Material Output / Displacement`
 
-### Zip export
+`ao.png` is exported and included, but it is not connected by default.
 
-After exporting the zip:
+## How To Use
 
-1. Extract the `.zip` to a folder
-2. Open Blender → select a mesh → open the **Scripting** workspace
-3. Click **Open** and load `setup_material.py` from the extracted folder
-4. Click **Run Script**
+1. Upload a JPG, PNG, or WEBP image
+2. Adjust the controls until the preview looks right
+3. Choose a preview geometry
+4. Export either:
+   - `Export Blender Zip`
+   - `Export .blend`
 
-The script automatically creates a material with:
-- `UV` → `Mapping` → all texture nodes
-- `Image Texture (sRGB)` → **Base Color**
-- `Image Texture (Non-Color)` → **Roughness**
-- `Image Texture (Non-Color)` → `Normal Map node` → **Normal**
-- `Image Texture (Non-Color)` → `Displacement node` → **Material Output Displacement**
+## Notes
 
-### Direct `.blend` export
+- All map generation happens locally in the browser
+- `.blend` export also stays local if you run the Blender bridge on your own machine
+- The exported `.blend` currently uses the selected preview geometry as the object in the generated file
+- The Blender bridge packs the generated images into the `.blend` before returning it
 
-When `npm run dev:blender` is running, the website can:
+## Scripts
 
-1. Generate all maps locally in the browser
-2. Send them to the local Blender bridge on `http://localhost:3001`
-3. Launch Blender in headless mode
-4. Return a downloadable `.blend` with the selected preview geometry and wired material
-
----
-
-##  Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Bundler | [Vite](https://vitejs.dev/) |
-| 3D Engine | [Three.js](https://threejs.org/) |
-| Local `.blend` Export | Node.js + Headless Blender |
-| ZIP Export | [JSZip](https://stuk.github.io/jszip/) |
-| Fonts | [Plus Jakarta Sans + Space Grotesk](https://fonts.google.com/) |
-| Styling | Vanilla CSS (Glassmorphism + Dark Mode) |
-| Processing | HTML5 Canvas API (Sobel filter, Box Blur, Tiling) |
-
----
-
-##  Project Structure
-
-```
-teb/
-├── index.html          # Studio layout, controls, viewport
-├── package.json
-├── server/
-│   └── blender-service.mjs   # Local bridge that calls headless Blender
-├── vite.config.js
-└── src/
-    ├── main.js         # Event routing, state, processing pipeline
-    ├── style.css       # Dark mode glassmorphic theme
-    ├── generator.js    # PBR map generation (Normal, Roughness, AO, Displacement, Tiling)
-    ├── preview3d.js    # Three.js scene, lights, OrbitControls, canvas textures
-    └── exporter.js     # JSZip bundler + Blender Python script generator
-```
-
----
-
+- `npm run dev`: start the Vite app
+- `npm run dev:blender`: start the local Blender export bridge
+- `npm run build`: build the frontend
+- `npm run preview`: preview the production build
